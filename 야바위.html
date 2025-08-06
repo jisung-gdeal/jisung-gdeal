@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>컵과 공 게임 - Shell Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .cup {
+            transition: all 0.3s ease-in-out;
+            cursor: pointer;
+        }
+        
+        .cup:hover {
+            transform: translateY(-5px);
+        }
+        
+        .cup.shuffling {
+            transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        
+        .cup.lifted {
+            transform: translateY(-40px);
+        }
+        
+        .ball {
+            transition: all 0.3s ease-in-out;
+        }
+        
+        .shadow {
+            filter: blur(2px);
+            opacity: 0.3;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        .bounce {
+            animation: bounce 1s;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .pulse {
+            animation: pulse 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-600 via-blue-600 to-teal-500 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-4xl w-full">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">🎪 컵과 공 게임</h1>
+            <p class="text-gray-600">공이 숨겨진 컵을 찾아보세요!</p>
+        </div>
+        
+        <!-- Score and Settings -->
+        <div class="flex justify-between items-center mb-8">
+            <div class="bg-yellow-100 rounded-lg p-4">
+                <div class="text-sm text-yellow-600 font-medium">💰 보유 코인</div>
+                <div class="text-2xl font-bold text-yellow-800" id="coins">0</div>
+            </div>
+            
+            <div class="flex gap-4">
+                <div class="bg-gray-100 rounded-lg p-3">
+                    <label class="text-sm text-gray-600 block mb-1">컵 개수</label>
+                    <select id="cupCount" class="bg-white border rounded px-2 py-1 text-sm">
+                        <option value="3" selected>3개</option>
+                        <option value="4">4개</option>
+                        <option value="5">5개</option>
+                    </select>
+                </div>
+                
+                <div class="bg-gray-100 rounded-lg p-3">
+                    <label class="text-sm text-gray-600 block mb-1">난이도</label>
+                    <select id="difficulty" class="bg-white border rounded px-2 py-1 text-sm">
+                        <option value="easy">쉬움</option>
+                        <option value="medium" selected>보통</option>
+                        <option value="hard">어려움</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Area -->
+        <div class="relative bg-gradient-to-b from-green-400 to-green-600 rounded-2xl p-8 mb-8" style="height: 300px;">
+            <!-- Game Surface -->
+            <div class="absolute inset-0 bg-gradient-to-b from-green-300 to-green-500 rounded-2xl shadow-inner"></div>
+            
+            <!-- Cups Container -->
+            <div id="cupsContainer" class="relative flex justify-center items-end h-full gap-8">
+                <!-- Cups will be generated here -->
+            </div>
+            
+            <!-- Ball (hidden initially) -->
+            <div id="ball" class="absolute w-6 h-6 bg-red-500 rounded-full shadow-lg hidden" style="bottom: 20px;">
+                <div class="w-full h-full bg-gradient-to-br from-red-400 to-red-600 rounded-full"></div>
+            </div>
+        </div>
+        
+        <!-- Betting Controls -->
+        <div id="bettingControls" class="text-center mb-6 hidden">
+            <div class="bg-gray-100 rounded-lg p-4 inline-block">
+                <div class="text-sm text-gray-600 mb-2">베팅할 코인</div>
+                <div class="flex items-center gap-2 justify-center">
+                    <button id="betMinus" class="bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full font-bold">-</button>
+                    <input type="number" id="betAmount" class="w-20 text-center border rounded px-2 py-1" value="1" min="1">
+                    <button id="betPlus" class="bg-green-500 hover:bg-green-600 text-white w-8 h-8 rounded-full font-bold">+</button>
+                </div>
+                <div class="text-xs text-gray-500 mt-1">승리시 <span id="winAmount">2</span>코인 획득</div>
+            </div>
+        </div>
+
+        <!-- Game Controls -->
+        <div class="text-center">
+            <button id="startBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full text-lg transition-all duration-200 transform hover:scale-105 shadow-lg">
+                🎮 첫 게임 시작 (10코인 획득)
+            </button>
+            
+            <button id="playBtn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-full text-lg transition-all duration-200 transform hover:scale-105 shadow-lg hidden">
+                🎲 베팅하고 게임하기
+            </button>
+            
+            <button id="restartBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full text-lg transition-all duration-200 transform hover:scale-105 shadow-lg hidden ml-4">
+                🔄 다시하기
+            </button>
+        </div>
+        
+        <!-- Game Status -->
+        <div id="gameStatus" class="text-center mt-6">
+            <p class="text-gray-600 text-lg">컵 개수와 난이도를 선택한 후 게임을 시작하세요!</p>
+        </div>
+        
+        <!-- Result Message -->
+        <div id="resultMessage" class="text-center mt-4 hidden">
+            <div class="inline-block bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg">
+                <p class="font-bold text-xl" id="resultText"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ShellGame {
+            constructor() {
+                this.cups = [];
+                this.ballPosition = 0;
+                this.gameActive = false;
+                this.coins = 0;
+                this.cupCount = 3;
+                this.difficulty = 'medium';
+                this.shuffleCount = { easy: 3, medium: 5, hard: 8 };
+                this.isFirstGame = true;
+                this.currentBet = 1;
+                
+                this.initializeElements();
+                this.setupEventListeners();
+                this.createCups();
+            }
+            
+            initializeElements() {
+                this.cupsContainer = document.getElementById('cupsContainer');
+                this.ball = document.getElementById('ball');
+                this.startBtn = document.getElementById('startBtn');
+                this.playBtn = document.getElementById('playBtn');
+                this.restartBtn = document.getElementById('restartBtn');
+                this.gameStatus = document.getElementById('gameStatus');
+                this.resultMessage = document.getElementById('resultMessage');
+                this.resultText = document.getElementById('resultText');
+                this.coinsElement = document.getElementById('coins');
+                this.cupCountSelect = document.getElementById('cupCount');
+                this.difficultySelect = document.getElementById('difficulty');
+                this.bettingControls = document.getElementById('bettingControls');
+                this.betAmount = document.getElementById('betAmount');
+                this.betMinus = document.getElementById('betMinus');
+                this.betPlus = document.getElementById('betPlus');
+                this.winAmount = document.getElementById('winAmount');
+            }
+            
+            setupEventListeners() {
+                this.startBtn.addEventListener('click', () => this.startFirstGame());
+                this.playBtn.addEventListener('click', () => this.startBettingGame());
+                this.restartBtn.addEventListener('click', () => this.restartGame());
+                this.cupCountSelect.addEventListener('change', (e) => {
+                    this.cupCount = parseInt(e.target.value);
+                    this.createCups();
+                });
+                this.difficultySelect.addEventListener('change', (e) => {
+                    this.difficulty = e.target.value;
+                });
+                
+                // Betting controls
+                this.betMinus.addEventListener('click', () => this.adjustBet(-1));
+                this.betPlus.addEventListener('click', () => this.adjustBet(1));
+                this.betAmount.addEventListener('input', () => this.updateBet());
+            }
+            
+            createCups() {
+                this.cupsContainer.innerHTML = '';
+                this.cups = [];
+                
+                const cupWidth = Math.min(80, 300 / this.cupCount);
+                const gap = Math.min(32, 200 / this.cupCount);
+                
+                for (let i = 0; i < this.cupCount; i++) {
+                    const cupContainer = document.createElement('div');
+                    cupContainer.className = 'relative flex flex-col items-center';
+                    cupContainer.style.width = `${cupWidth}px`;
+                    
+                    // Cup shadow
+                    const shadow = document.createElement('div');
+                    shadow.className = 'absolute bottom-0 bg-black rounded-full shadow opacity-20';
+                    shadow.style.width = `${cupWidth}px`;
+                    shadow.style.height = '12px';
+                    shadow.style.transform = 'translateY(8px)';
+                    
+                    // Cup
+                    const cup = document.createElement('div');
+                    cup.className = 'cup relative bg-gradient-to-b from-amber-400 to-amber-600 rounded-t-full border-4 border-amber-700';
+                    cup.style.width = `${cupWidth}px`;
+                    cup.style.height = `${cupWidth * 1.2}px`;
+                    cup.dataset.index = i;
+                    
+                    // Cup highlight
+                    const highlight = document.createElement('div');
+                    highlight.className = 'absolute top-2 left-2 w-4 h-6 bg-yellow-200 rounded-full opacity-60';
+                    
+                    cup.appendChild(highlight);
+                    cupContainer.appendChild(shadow);
+                    cupContainer.appendChild(cup);
+                    
+                    cup.addEventListener('click', () => this.selectCup(cup));
+                    
+                    this.cupsContainer.appendChild(cupContainer);
+                    this.cups.push(cup);
+                }
+                
+                this.cupsContainer.style.gap = `${gap}px`;
+            }
+            
+            adjustBet(change) {
+                const newBet = Math.max(1, Math.min(this.coins, this.currentBet + change));
+                this.currentBet = newBet;
+                this.betAmount.value = newBet;
+                this.winAmount.textContent = newBet * 2;
+                this.updatePlayButton();
+            }
+            
+            updateBet() {
+                const bet = Math.max(1, Math.min(this.coins, parseInt(this.betAmount.value) || 1));
+                this.currentBet = bet;
+                this.betAmount.value = bet;
+                this.winAmount.textContent = bet * 2;
+                this.updatePlayButton();
+            }
+            
+            updatePlayButton() {
+                if (this.currentBet > this.coins) {
+                    this.playBtn.disabled = true;
+                    this.playBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    this.playBtn.textContent = '💰 코인이 부족합니다';
+                } else {
+                    this.playBtn.disabled = false;
+                    this.playBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    this.playBtn.textContent = `🎲 ${this.currentBet}코인 베팅하고 게임하기`;
+                }
+            }
+
+            startFirstGame() {
+                this.isFirstGame = true;
+                this.startGame();
+            }
+            
+            startBettingGame() {
+                if (this.currentBet > this.coins) return;
+                this.isFirstGame = false;
+                this.startGame();
+            }
+
+            startGame() {
+                this.gameActive = true;
+                this.ballPosition = Math.floor(Math.random() * this.cupCount);
+                
+                this.startBtn.classList.add('hidden');
+                this.playBtn.classList.add('hidden');
+                this.bettingControls.classList.add('hidden');
+                this.restartBtn.classList.remove('hidden');
+                this.resultMessage.classList.add('hidden');
+                
+                this.gameStatus.innerHTML = '<p class="text-blue-600 text-lg font-semibold">🔄 컵을 섞고 있습니다...</p>';
+                
+                // Show ball initially
+                this.showBallUnderCup(this.ballPosition);
+                
+                setTimeout(() => {
+                    this.ball.classList.add('hidden');
+                    this.shuffleCups();
+                }, 1500);
+            }
+            
+            showBallUnderCup(cupIndex) {
+                const cup = this.cups[cupIndex];
+                const cupRect = cup.getBoundingClientRect();
+                const containerRect = this.cupsContainer.getBoundingClientRect();
+                
+                const ballX = cupRect.left - containerRect.left + (cupRect.width / 2) - 12;
+                
+                this.ball.style.left = `${ballX}px`;
+                this.ball.classList.remove('hidden');
+                this.ball.classList.add('bounce');
+                
+                setTimeout(() => {
+                    this.ball.classList.remove('bounce');
+                }, 1000);
+            }
+            
+            async shuffleCups() {
+                const shuffles = this.shuffleCount[this.difficulty];
+                
+                for (let i = 0; i < shuffles; i++) {
+                    await this.performShuffle();
+                    await this.delay(200);
+                }
+                
+                this.cups.forEach(cup => cup.classList.remove('shuffling'));
+                this.gameStatus.innerHTML = '<p class="text-green-600 text-lg font-semibold">✨ 공이 숨겨진 컵을 선택하세요!</p>';
+            }
+            
+            async performShuffle() {
+                const cup1Index = Math.floor(Math.random() * this.cupCount);
+                let cup2Index = Math.floor(Math.random() * this.cupCount);
+                while (cup2Index === cup1Index) {
+                    cup2Index = Math.floor(Math.random() * this.cupCount);
+                }
+                
+                const cup1 = this.cups[cup1Index];
+                const cup2 = this.cups[cup2Index];
+                
+                cup1.classList.add('shuffling');
+                cup2.classList.add('shuffling');
+                
+                // Get positions
+                const cup1Rect = cup1.getBoundingClientRect();
+                const cup2Rect = cup2.getBoundingClientRect();
+                const containerRect = this.cupsContainer.getBoundingClientRect();
+                
+                const cup1X = cup1Rect.left - containerRect.left;
+                const cup2X = cup2Rect.left - containerRect.left;
+                
+                // Animate swap
+                cup1.style.transform = `translateX(${cup2X - cup1X}px)`;
+                cup2.style.transform = `translateX(${cup1X - cup2X}px)`;
+                
+                await this.delay(800);
+                
+                // Swap DOM positions
+                const cup1Parent = cup1.parentNode;
+                const cup2Parent = cup2.parentNode;
+                const cup1Next = cup1Parent.nextSibling;
+                const cup2Next = cup2Parent.nextSibling;
+                
+                this.cupsContainer.insertBefore(cup2Parent, cup1Next);
+                this.cupsContainer.insertBefore(cup1Parent, cup2Next);
+                
+                // Reset transforms
+                cup1.style.transform = '';
+                cup2.style.transform = '';
+                
+                // Update cups array and ball position tracking
+                [this.cups[cup1Index], this.cups[cup2Index]] = [this.cups[cup2Index], this.cups[cup1Index]];
+                
+                // Update ball position if needed
+                if (this.ballPosition === cup1Index) {
+                    this.ballPosition = cup2Index;
+                } else if (this.ballPosition === cup2Index) {
+                    this.ballPosition = cup1Index;
+                }
+                
+                // Update data-index to reflect new positions
+                this.cups.forEach((cup, index) => {
+                    cup.dataset.index = index;
+                });
+            }
+            
+            selectCup(clickedCup) {
+                if (!this.gameActive) return;
+                
+                this.gameActive = false;
+                
+                // Find the actual index of the clicked cup in the current DOM order
+                const cupContainers = Array.from(this.cupsContainer.children);
+                const clickedContainer = clickedCup.parentNode;
+                const actualClickedIndex = cupContainers.indexOf(clickedContainer);
+                
+                // Lift the selected cup
+                clickedCup.classList.add('lifted');
+                clickedCup.classList.add('pulse');
+                
+                setTimeout(() => {
+                    // Show ball under the correct cup (where it actually is)
+                    this.showBallUnderCup(this.ballPosition);
+                    
+                    // Check if the selected cup index matches the actual ball position
+                    if (actualClickedIndex === this.ballPosition) {
+                        // Win logic
+                        if (this.isFirstGame) {
+                            this.coins += 10;
+                            this.resultText.textContent = '🎉 정답! 첫 게임 보상으로 10코인을 획득했습니다!';
+                        } else {
+                            const winAmount = this.currentBet * 2;
+                            this.coins += winAmount;
+                            this.resultText.textContent = `🎉 정답! ${winAmount}코인을 획득했습니다!`;
+                        }
+                        this.coinsElement.textContent = this.coins;
+                        this.resultMessage.className = 'text-center mt-4';
+                        this.resultMessage.firstElementChild.className = 'inline-block bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg';
+                    } else {
+                        // Lose logic
+                        if (this.isFirstGame) {
+                            this.resultText.textContent = '😅 오답! 공은 다른 컵에 있었습니다. 다시 도전해보세요!';
+                        } else {
+                            this.coins -= this.currentBet;
+                            this.coinsElement.textContent = this.coins;
+                            this.resultText.textContent = `😅 오답! ${this.currentBet}코인을 잃었습니다.`;
+                        }
+                        this.resultMessage.className = 'text-center mt-4';
+                        this.resultMessage.firstElementChild.className = 'inline-block bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg';
+                    }
+                    
+                    this.resultMessage.classList.remove('hidden');
+                    this.gameStatus.innerHTML = '<p class="text-gray-600 text-lg">다시하기 버튼을 눌러 새 게임을 시작하세요!</p>';
+                }, 500);
+            }
+            
+
+            
+            restartGame() {
+                // Reset all cups
+                this.cups.forEach(cup => {
+                    cup.classList.remove('lifted', 'shuffling', 'pulse');
+                    cup.style.transform = '';
+                });
+                
+                this.ball.classList.add('hidden');
+                this.resultMessage.classList.add('hidden');
+                this.restartBtn.classList.add('hidden');
+                
+                this.createCups();
+                
+                // Show appropriate controls based on game state
+                if (this.coins === 0) {
+                    // No coins, show first game button
+                    this.isFirstGame = true;
+                    this.startBtn.classList.remove('hidden');
+                    this.gameStatus.innerHTML = '<p class="text-gray-600 text-lg">첫 게임을 시작해서 10코인을 획득하세요!</p>';
+                } else {
+                    // Has coins, show betting controls
+                    this.bettingControls.classList.remove('hidden');
+                    this.playBtn.classList.remove('hidden');
+                    this.currentBet = Math.min(this.currentBet, this.coins);
+                    this.betAmount.value = this.currentBet;
+                    this.winAmount.textContent = this.currentBet * 2;
+                    this.updatePlayButton();
+                    this.gameStatus.innerHTML = '<p class="text-gray-600 text-lg">베팅할 코인을 선택하고 게임을 시작하세요!</p>';
+                }
+            }
+            
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+        
+        // Initialize game when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ShellGame();
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a4d34834e9aa53',t:'MTc1NDM4MTUwMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
