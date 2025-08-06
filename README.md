@@ -1,4 +1,4 @@
-## Hi there 👋
+## 저는 이지성입니다.
 
 <!--
 **jisung-gdeal/jisung-gdeal** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
