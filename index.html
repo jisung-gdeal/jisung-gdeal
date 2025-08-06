@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 독서 코치</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- Pretendard Font -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+    <style>
+        /* Pretendard 폰트 전체 적용 */
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+        }
+        /* 로딩 스피너 애니메이션 */
+        .spinner {
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="container mx-auto max-w-2xl w-full">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800">AI 독서 코치 📖</h1>
+            <p class="text-gray-600 mt-2">책을 읽고 느낀 점을 공유하면 AI가 피드백과 함께 새로운 책을 추천해줘요.</p>
+        </header>
+
+        <main id="main-content" class="bg-white p-8 rounded-2xl shadow-lg w-full transition-all duration-500">
+            
+            <!-- Gemini API Key Input -->
+            <div class="mb-6">
+                <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">
+                    <i class="fas fa-key mr-2 text-gray-400"></i>Gemini API 키
+                </label>
+                <input type="password" id="apiKey" name="apiKey" class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="API 키를 입력해주세요">
+                <p class="text-xs text-gray-500 mt-1">API 키는 저장되지 않으며, 분석에만 사용됩니다.</p>
+            </div>
+
+            <!-- Form -->
+            <form id="report-form">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label for="age" class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-child mr-2 text-gray-400"></i>학생 연령</label>
+                        <input type="text" id="age" name="age" class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="예: 14세, 초등 5학년" required>
+                    </div>
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-user mr-2 text-gray-400"></i>학생 이름</label>
+                        <input type="text" id="name" name="name" class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="예: 홍길동" required>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label for="bookTitle" class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-book-open mr-2 text-gray-400"></i>책 제목</label>
+                    <input type="text" id="bookTitle" name="bookTitle" class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="재미있게 읽은 책 제목을 알려주세요." required>
+                </div>
+
+                <div class="mb-6">
+                    <label for="bookReport" class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-pencil-alt mr-2 text-gray-400"></i>독서감상문</label>
+                    <textarea id="bookReport" name="bookReport" rows="8" class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="책을 읽고 어떤 생각이 들었나요? 자유롭게 작성해주세요." required></textarea>
+                </div>
+
+                <div class="text-right">
+                    <button type="submit" id="submit-button" class="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-105">
+                        <i class="fas fa-cogs mr-2"></i>AI 분석 요청하기
+                    </button>
+                </div>
+            </form>
+
+            <!-- Loading Indicator -->
+            <div id="loading" class="hidden text-center py-12">
+                <div class="spinner w-12 h-12 rounded-full border-4 border-gray-200 mx-auto"></div>
+                <p class="mt-4 text-lg font-semibold text-gray-700">AI가 독서 감상문을 분석하고 있어요...</p>
+                <p class="text-gray-500">잠시만 기다려주세요.</p>
+            </div>
+
+            <!-- Results -->
+            <div id="results" class="hidden">
+                 <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3"><i class="fas fa-magic-sparkles mr-2"></i>AI 코치의 분석 결과</h2>
+                 
+                 <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-r-lg mb-6 shadow">
+                     <h3 class="font-bold text-lg mb-2"><i class="fas fa-comment-dots mr-2"></i>AI 평가</h3>
+                     <p id="ai-evaluation"></p>
+                 </div>
+
+                 <div class="bg-green-50 border-l-4 border-green-500 text-green-800 p-4 rounded-r-lg mb-8 shadow">
+                     <h3 class="font-bold text-lg mb-2"><i class="fas fa-book-reader mr-2"></i>이런 책은 어때요? (관련 도서 추천)</h3>
+                     <ul id="ai-recommendations" class="list-disc list-inside">
+                         <!-- Recommendations will be populated here -->
+                     </ul>
+                 </div>
+                 
+                 <div class="text-center">
+                    <button id="reset-button" class="px-6 py-2 bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-300 transform hover:scale-105">
+                        <i class="fas fa-redo-alt mr-2"></i>새로운 감상문 작성하기
+                    </button>
+                 </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        const reportForm = document.getElementById('report-form');
+        const mainContent = document.getElementById('main-content');
+        const loadingDiv = document.getElementById('loading');
+        const resultsDiv = document.getElementById('results');
+        const resetButton = document.getElementById('reset-button');
+
+        // 폼 제출 이벤트 리스너
+        reportForm.addEventListener('submit', handleFormSubmit);
+        
+        // 새로 작성하기 버튼 이벤트 리스너
+        resetButton.addEventListener('click', resetForm);
+
+        /**
+         * 폼 제출 시 실행되는 함수
+         */
+        function handleFormSubmit(event) {
+            event.preventDefault(); // 기본 제출 동작 방지
+
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                alert('Gemini API 키를 입력해주세요.');
+                return;
+            }
+
+            // 입력 데이터 객체 생성
+            const formData = {
+                apiKey: apiKey,
+                age: document.getElementById('age').value,
+                name: document.getElementById('name').value,
+                bookTitle: document.getElementById('bookTitle').value,
+                bookReport: document.getElementById('bookReport').value
+            };
+
+            // 로딩 화면 표시
+            reportForm.classList.add('hidden');
+            loadingDiv.classList.remove('hidden');
+
+            // Google Apps Script 백엔드 함수 호출
+            google.script.run
+                .withSuccessHandler(showResults)
+                .withFailureHandler(showError)
+                .processBookReport(formData);
+        }
+
+        /**
+         * AI 분석 성공 시 결과를 화면에 표시하는 함수
+         * @param {object} response - 백엔드에서 전달받은 AI 분석 결과
+         */
+        function showResults(response) {
+            document.getElementById('ai-evaluation').innerText = response.evaluation;
+            
+            const recommendationList = document.getElementById('ai-recommendations');
+            recommendationList.innerHTML = ''; // 기존 목록 초기화
+            response.recommendations.forEach(book => {
+                const li = document.createElement('li');
+                li.textContent = book;
+                recommendationList.appendChild(li);
+            });
+
+            loadingDiv.classList.add('hidden');
+            resultsDiv.classList.remove('hidden');
+        }
+
+        /**
+         * AI 분석 실패 시 에러 메시지를 표시하는 함수
+         * @param {Error} error - 백엔드에서 전달받은 에러 객체
+         */
+        function showError(error) {
+            alert('오류가 발생했습니다: ' + error.message);
+            
+            // UI 초기 상태로 복원
+            loadingDiv.classList.add('hidden');
+            reportForm.classList.remove('hidden');
+        }
+        
+        /**
+         * 입력 폼을 초기화하고 결과 화면을 숨기는 함수
+         */
+        function resetForm() {
+            reportForm.reset(); // 폼 필드 초기화
+            resultsDiv.classList.add('hidden');
+            reportForm.classList.remove('hidden');
+        }
+
+    </script>
+</body>
+</html>
